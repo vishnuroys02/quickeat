@@ -1,0 +1,28 @@
+{
+  "family": "quickeats-frontend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::968077439326:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "quickeats-frontend",
+      "image": "968077439326.dkr.ecr.ap-south-1.amazonaws.com/quickeats-frontend:latest",
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "protocol": "tcp"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/quickeats-frontend",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

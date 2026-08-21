@@ -1,0 +1,42 @@
+{
+  "family": "quickeats-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::968077439326:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "quickeats-backend",
+      "image": "968077439326.dkr.ecr.ap-south-1.amazonaws.com/quickeats-backend:latest",
+      "portMappings": [
+        {
+          "containerPort": 5000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "DATABASE_URL",
+          "value": "postgresql+psycopg://quickeats:quickeats123@quickeats-db.cry4um2uk5hg.ap-south-1.rds.amazonaws.com:5432/quickeats"
+        },
+        {
+          "name": "SECRET_KEY",
+          "value": "change-this-secret-key"
+        },
+        {
+          "name": "CORS_ORIGINS",
+          "value": "*"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/quickeats-backend",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
