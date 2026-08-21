@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: quickeats-db
+    environment:
+      POSTGRES_DB: quickeats
+      POSTGRES_USER: quickeats
+      POSTGRES_PASSWORD: quickeats123
+    ports: ["5432:5432"]
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quickeats -d quickeats"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: quickeats-backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://quickeats:quickeats123@db:5432/quickeats
+      SECRET_KEY: change-this-secret-key
+      CORS_ORIGINS: http://localhost:5173
+    ports: ["5000:5000"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: quickeats-frontend
+    ports: ["5173:80"]
+    depends_on: [backend]
+
+volumes:
+  postgres_data:

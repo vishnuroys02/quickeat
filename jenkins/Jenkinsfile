@@ -1,0 +1,54 @@
+pipeline {
+  agent any
+  environment {
+    AWS_REGION = 'ap-south-1'
+    ECR_REPOSITORY = 'quickeats-backend'
+    IMAGE_TAG = "${BUILD_NUMBER}"
+  }
+  stages {
+    stage('Checkout') { steps { checkout scm } }
+    stage('Backend Test') {
+      steps {
+        sh '''
+          python3 -m venv .ci-venv
+          . .ci-venv/bin/activate
+          pip install -r backend/requirements.txt
+          pytest -q backend/test_app.py
+        '''
+      }
+    }
+    stage('Frontend Build') {
+      steps { sh 'cd frontend && npm ci && npm run build' }
+    }
+    stage('Docker Build') {
+      steps {
+        sh '''
+          docker build -t ${ECR_REPOSITORY}:${IMAGE_TAG} ./backend
+          docker build -t quickeats-frontend:${IMAGE_TAG} ./frontend
+        '''
+      }
+    }
+    stage('ECR Push') {
+      when { branch 'main' }
+      steps {
+        withCredentials([[$class:'AmazonWebServicesCredentialsBinding',
+          credentialsId:'aws-jenkins',
+          accessKeyVariable:'AWS_ACCESS_KEY_ID',
+          secretKeyVariable:'AWS_SECRET_ACCESS_KEY']]) {
+          sh '''
+            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+            docker tag ${ECR_REPOSITORY}:${IMAGE_TAG} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
+            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
+          '''
+        }
+      }
+    }
+    stage('Deploy to ECS') {
+      when { branch 'main' }
+      steps {
+        echo 'Configure ECS cluster/service and run aws ecs update-service --force-new-deployment'
+      }
+    }
+  }
+  post { always { sh 'rm -rf .ci-venv || true' } }
+}
