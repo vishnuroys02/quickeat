@@ -36,8 +36,7 @@ pipeline {
       }
     }
 
-    stage('ECR Push') {
-      when { branch 'main' }
+    stage('Deploy to ECS') {
       steps {
         withCredentials([[$class:'AmazonWebServicesCredentialsBinding',
           credentialsId:'aws-jenkins',
@@ -57,7 +56,6 @@ pipeline {
     }
 
     stage('Deploy to ECS') {
-      when { branch 'main' }
       steps {
         withCredentials([[$class:'AmazonWebServicesCredentialsBinding',
           credentialsId:'aws-jenkins',
