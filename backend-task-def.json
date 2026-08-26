@@ -8,7 +8,7 @@
   "containerDefinitions": [
     {
       "name": "quickeats-backend",
-      "image": "968077439326.dkr.ecr.ap-south-1.amazonaws.com/quickeats-backend:latest",
+      "image": "968077439326.dkr.ecr.ap-south-1.amazonaws.com/quickeats-backend:5",
       "portMappings": [
         {
           "containerPort": 5000,
