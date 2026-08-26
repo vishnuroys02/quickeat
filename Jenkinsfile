@@ -63,13 +63,13 @@ pipeline {
           secretKeyVariable:'AWS_SECRET_ACCESS_KEY']]) {
           sh '''
             aws ecs update-service \
-              --cluster quickeats-cluster \
+              --cluster quickeats-cluster-v2 \
               --service quickeats-backend-service \
               --force-new-deployment \
               --region ${AWS_REGION}
 
             aws ecs update-service \
-              --cluster quickeats-cluster \
+              --cluster quickeats-cluster-v2 \
               --service quickeats-frontend-service \
               --force-new-deployment \
               --region ${AWS_REGION}
