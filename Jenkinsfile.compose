@@ -47,7 +47,7 @@ pipeline {
         sh '''
           mkdir -p trivy-reports
           for svc in backend frontend; do
-            IMG="quickeats-$svc:${IMAGE_TAG}"
+            IMG="quickeats-compose-$svc:${IMAGE_TAG}"
 
             # Full report (all severities) for submission
             trivy image --format table -o trivy-reports/$svc-full.txt "$IMG"
@@ -92,7 +92,7 @@ pipeline {
         sh '''
           echo "${IMAGE_TAG}" > "${LAST_GOOD_FILE}"
 
-          for repo in quickeats-backend quickeats-frontend; do
+          for repo in quickeats-compose-backend quickeats-compose-frontend; do
             docker images "$repo" --format '{{.Tag}}' | grep -E '^[0-9]+$' \
               | sort -rn | tail -n +$((KEEP_IMAGES + 1)) \
               | xargs -r -I{} docker rmi "$repo:{}" || true

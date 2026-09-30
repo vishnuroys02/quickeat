@@ -19,7 +19,7 @@ services:
 
   backend:
     build: ./backend
-    image: quickeats-backend:${IMAGE_TAG:-latest}
+    image: quickeats-compose-backend:${IMAGE_TAG:-latest}
     container_name: quickeats-backend
     restart: unless-stopped
     environment:
@@ -34,7 +34,7 @@ services:
 
   frontend:
     build: ./frontend
-    image: quickeats-frontend:${IMAGE_TAG:-latest}
+    image: quickeats-compose-frontend:${IMAGE_TAG:-latest}
     container_name: quickeats-frontend
     restart: unless-stopped
     ports:
