@@ -1,0 +1,130 @@
+pipeline {
+  agent any
+
+  options {
+    disableConcurrentBuilds()
+    timeout(time: 30, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '10'))
+  }
+
+  environment {
+    IMAGE_TAG      = "${BUILD_NUMBER}"
+    APP_URL        = "http://3.108.63.18:5173"
+    DB_PASSWORD    = credentials('quickeats-db-password')
+    SECRET_KEY     = credentials('quickeats-secret-key')
+    LAST_GOOD_FILE = "${JENKINS_HOME}/quickeats-last-good-tag"
+    KEEP_IMAGES    = "3"
+  }
+
+  stages {
+
+    stage('Checkout') {
+      steps {
+        checkout scm
+        sh 'git log -1 --oneline'
+      }
+    }
+
+    stage('Backend Tests') {
+      steps {
+        sh '''
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
+            -v "$PWD/backend":/app -w /app python:3.12-slim \
+            sh -c "pip install --user -q -r requirements.txt && python -m pytest -q -p no:cacheprovider"
+        '''
+      }
+    }
+
+    stage('Docker Build') {
+      steps {
+        sh 'docker compose build'
+        sh 'docker images | grep quickeats'
+      }
+    }
+
+    stage('Trivy Scan') {
+      steps {
+        sh '''
+          mkdir -p trivy-reports
+          for svc in backend frontend; do
+            IMG="quickeats-$svc:${IMAGE_TAG}"
+
+            # Full report (all severities) for submission
+            trivy image --format table -o trivy-reports/$svc-full.txt "$IMG"
+
+            # Security gate: fail on fixable HIGH/CRITICAL
+            trivy image --severity HIGH,CRITICAL --ignore-unfixed \
+              --exit-code 1 --format table -o trivy-reports/$svc-gate.txt "$IMG"
+          done
+        '''
+      }
+    }
+
+    stage('Deploy') {
+      steps {
+        script { env.DEPLOY_STARTED = 'true' }
+        sh 'docker compose up -d --no-build --remove-orphans'
+        sh 'docker compose ps'
+      }
+    }
+
+    stage('Health Check') {
+      steps {
+        sh '''
+          echo "Waiting for backend..."
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:5000/health >/dev/null; then
+              echo "Backend healthy"; break
+            fi
+            if [ "$i" -eq 30 ]; then echo "Backend health check FAILED"; exit 1; fi
+            sleep 5
+          done
+
+          echo "Checking frontend + nginx proxy to backend..."
+          curl -sf http://127.0.0.1:5173/ >/dev/null && echo "Frontend healthy"
+          curl -sf http://127.0.0.1:5173/health && echo && echo "Proxy OK"
+        '''
+      }
+    }
+
+    stage('Cleanup Old Images') {
+      steps {
+        sh '''
+          echo "${IMAGE_TAG}" > "${LAST_GOOD_FILE}"
+
+          for repo in quickeats-backend quickeats-frontend; do
+            docker images "$repo" --format '{{.Tag}}' | grep -E '^[0-9]+$' \
+              | sort -rn | tail -n +$((KEEP_IMAGES + 1)) \
+              | xargs -r -I{} docker rmi "$repo:{}" || true
+          done
+
+          docker image prune -f
+          docker images | grep quickeats || true
+        '''
+      }
+    }
+  }
+
+  post {
+    always {
+      archiveArtifacts artifacts: 'trivy-reports/*.txt', allowEmptyArchive: true
+    }
+    success {
+      echo "Deployment SUCCESS: build ${IMAGE_TAG}"
+    }
+    failure {
+      script {
+        if (env.DEPLOY_STARTED == 'true' && fileExists(env.LAST_GOOD_FILE)) {
+          sh '''
+            PREV=$(cat "${LAST_GOOD_FILE}")
+            echo "Deployment failed. Rolling back to tag: $PREV"
+            IMAGE_TAG=$PREV docker compose up -d --no-build
+            docker compose ps
+          '''
+        } else {
+          echo "Failed before deploy (or no previous good version). No rollback needed."
+        }
+      }
+    }
+  }
+}
