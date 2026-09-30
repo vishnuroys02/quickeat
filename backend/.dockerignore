@@ -1,2 +1,7 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+.git/
 *.db
 instance/
